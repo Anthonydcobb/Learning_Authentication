@@ -5,6 +5,8 @@ const bodyParser = require("body-parser");
 const mongoose = require("mongoose");
 
 const md5 = require("md5"); // hash function
+const bcrypt = require("bcrypt");
+const saltRounds = 10;
 
 const app = express();
 app.set("view engine", "ejs");
@@ -39,13 +41,22 @@ app
     res.render("login");
   })
   .post((req, res) => {
-    User.findOne({ username: req.body.username }, (err, result) => {
-      if (result.password === md5(req.body.password)) {
-        console.log("successful login");
-        res.render("secrets");
-      } else {
+    User.findOne({ username: req.body.username }, (err, foundUser) => {
+      if (err) {
         console.log("try again");
         res.redirect("/login");
+      } else {
+        if (foundUser) {
+          bcrypt.compare(
+            req.body.password,
+            foundUser.password,
+            (err, result) => {
+              if (result === true) {
+                res.render("secrets");
+              }
+            }
+          );
+        }
       }
     });
   });
@@ -58,12 +69,15 @@ app
   .post((req, res) => {
     User.findOne({ username: req.body.username }, (err, result) => {
       if (result === null) {
-        const newUser = new User({
-          username: req.body.username,
-          password: md5(req.body.password),
+        bcrypt.hash(req.body.password, saltRounds, (err, hash) => {
+          const newUser = new User({
+            username: req.body.username,
+            password: hash,
+          });
+          newUser.save(() => {
+            err ? console.log(err) : res.redirect("/login");
+          });
         });
-        newUser.save();
-        res.redirect("/login");
       } else {
         console.log("Username already exists");
         res.redirect("/register");
