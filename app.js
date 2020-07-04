@@ -3,7 +3,9 @@ require("dotenv").config();
 const express = require("express");
 const bodyParser = require("body-parser");
 const mongoose = require("mongoose");
-const encrypt = require("mongoose-encryption"); // this encrypts when you call save and decrypts when you call find
+
+const md5 = require("md5"); // hash function
+
 const app = express();
 app.set("view engine", "ejs");
 app.use(
@@ -23,10 +25,6 @@ const userSchema = new mongoose.Schema({
   password: String,
 });
 
-userSchema.plugin(encrypt, {
-  secret: process.env.SECRET,
-  encryptedFields: ["password"],
-}); // look into mongoose plugins // also this has to be before the model creation.
 const User = mongoose.model("User", userSchema);
 
 //-----------------------------------------------//
@@ -42,7 +40,7 @@ app
   })
   .post((req, res) => {
     User.findOne({ username: req.body.username }, (err, result) => {
-      if (result.password === req.body.password) {
+      if (result.password === md5(req.body.password)) {
         console.log("successful login");
         res.render("secrets");
       } else {
@@ -62,7 +60,7 @@ app
       if (result === null) {
         const newUser = new User({
           username: req.body.username,
-          password: req.body.password,
+          password: md5(req.body.password),
         });
         newUser.save();
         res.redirect("/login");
